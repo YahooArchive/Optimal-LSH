@@ -507,6 +507,7 @@ class TestDataClass:
 	# this LSH implementation.'''
 	def __init__(self):
 		self.myData = None
+		self.myIndex = None
 		self.nearestNeighbors = {}		# A dictionary pointing to IDs
 	
 	def LoadData(self, filename):
@@ -551,6 +552,21 @@ class TestDataClass:
 			pass
 		sys.stderr.write("Can't write test data to %s\n" % filename)
 		
+	def CreateIndex(self, w, k, l):
+		'''Create an index for the data we have in our database.  Inputs are
+		the LSH parameters: w, k and l.'''
+		self.myIndex = index(w, k, l)
+		itemCount = 0
+		tic = time.clock()
+		for itemID in self.IterateKeys():
+			features = self.RetrieveData(itemID)
+			if features != None:
+				self.myIndex.InsertIntoTable(itemID, features)
+				itemCount += 1
+		print "Finished indexing %d items in %g seconds." % \
+			(itemCount, time.clock()-tic)
+		sys.stdout.flush()
+	
 	def RetrieveData(self, id):
 		'''Find a point in the array of data.'''
 		id = int(id)						# Key in default class is an int!
@@ -659,19 +675,28 @@ class TestDataClass:
 		histograms needed for the LSH Parameter Optimization.  For
 		a number of random query points, print the distance to the 
 		nearest neighbor, and to any random neighbor.  This becomes 
-		the input for the parameter optimization routine'''
+		the input for the parameter optimization routine.  Enhanced
+		to also print the NN binary projections.'''
 		numPoints = self.NumPoints()
 		medians = self.FindMedian()
+		print "Pulling %d items from the NearestNeighbors list for ComputeDistanceHistogram" % \
+			len(self.nearestNeighbors.items())
 		for (queryKey,(nnKey,nnDist)) in self.nearestNeighbors.items():
 			randKey = self.GetRandomQuery()
 			
 			queryData = self.RetrieveData(queryKey)
 			nnData = self.RetrieveData(nnKey)
 			randData = self.RetrieveData(randKey)
-			
+			if len(queryData) == 0 or len(nnData) == 0:			# Missing, probably because of subsampling
+				print "Skipping %s/%s because data is missing." % (queryKey, nnKey)
+				continue
 			anyD2 = ((randData-queryData)**2).sum()
 			
 			projection = numpy.random.randn(1, queryData.shape[0])
+			# print "projection:", projection.shape
+			# print "queryData:", queryData.shape
+			# print "nnData:", nnData.shape
+			# print "randData:", randData.shape
 			queryProj = numpy.sign(numpy.dot(projection, queryData))
 			nnProj = numpy.sign(numpy.dot(projection, nnData))
 			randProj = numpy.sign(numpy.dot(projection, randData))
@@ -680,8 +705,8 @@ class TestDataClass:
 			fp.write('%g %g %d %d\n' % \
 				(nnDist, math.sqrt(anyD2), \
 				 queryProj==nnProj, queryProj==randProj))
-			fp.flush()
-
+			fp.flush()			
+		
 	def ComputePnnPany(self, w, k, l, multiprobe=0):
 		'''Compute the probability of Pnn and Pany for a given index size.
 		Create the desired index, populate it with the data, and then measure
@@ -690,24 +715,25 @@ class TestDataClass:
 			the pnn rate for one 1-dimensional index (l=1),
 			the pnn rate for an l-dimensional index, 
 			the pany rate for one 1-dimensional index (l=1), 
-			and the pany rate for an l-dimensional index'''
+			and the pany rate for an l-dimensional index
+			the CPU time per query (seconds)'''
 		numPoints = self.NumPoints()
 		numDims = self.NumDimensions()
-		myTestIndex = index(w, k, l)			# Put data into a new index
-		for id in self.IterateKeys():
-			data = self.RetrieveData(id)
-			myTestIndex.InsertIntoTable(id, data)
+		self.CreateIndex(w, k, l)			# Put data into new index
 		# OutputAllProjections(self, myTestIndex, 'testData%03d.proj' % numDims)
 		cnn  = 0; cnnFull  = 0
 		cany = 0; canyFull = 0
-		count = 0							# Probe the index
-		startQueryTime = time.clock()
+		queryCount = 0							# Probe the index
+		totalQueryTime = 0
+		# print "ComputePnnPany: Testing %d nearest neighbors." % len(self.nearestNeighbors.items())
 		for (queryKey,(nnKey,dist)) in self.nearestNeighbors.items():
 			queryData = self.RetrieveData(queryKey)
 			if queryData == None or len(queryData) == 0:
 				print "Can't find data for key %s" % str(queryKey)
 				continue
-			matches = myTestIndex.FindMP(queryData, multiprobe)
+			startQueryTime = time.clock()
+			matches = self.myIndex.FindMP(queryData, multiprobe)
+			totalQueryTime += time.clock() - startQueryTime
 			for (m,c) in matches:
 				if nnKey == m:				# See if NN was found!!!
 					cnn += c
@@ -715,13 +741,14 @@ class TestDataClass:
 				if m != queryKey:
 					cany += c
 			canyFull += len(matches)-1
-			count += 1
+			queryCount += 1
 			# Some debugging for k curve.. print individual results
 			# print "ComputePnnPany Debug:", w, k, l, len(matches), numPoints, cnn, cnnFull, cany, canyFull
-		endQueryTime = time.clock()
-		perQueryTime = (endQueryTime-startQueryTime)/count
-		return (cnn/float(count*l)), cnnFull/float(count), \
-			cany/(float(count*l*numPoints)), canyFull/float(count*numPoints), perQueryTime
+		if queryCount == 0:
+			queryCount = 1					# To prevent divide by zero
+		perQueryTime = totalQueryTime/queryCount
+		return cnn/float(queryCount*l), cnnFull/float(queryCount), \
+			cany/float(queryCount*l*numPoints), canyFull/float(queryCount*numPoints), perQueryTime
 
 	def ComputePnnPanyCurve(self, wList = .291032, multiprobe=0):
 			if type(wList) == float or type(wList) == int:

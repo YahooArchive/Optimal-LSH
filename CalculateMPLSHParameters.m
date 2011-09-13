@@ -37,6 +37,8 @@ if ~exist('simplepdf','file')
     path(path,'/Users/malcolm/Projects/LSHwithYury/jlab/')
 end
 
+debugPlot = 0;          % Set to non zero to get debugging plots
+
 %% 
 %%%%%%%%%%%%%%%%%%%   ARGUMENT PARSING    %%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -75,7 +77,8 @@ end
 
 %%%%%%%%%%%%%%%%  Make sure basic data looks good %%%%%%%%%%%%%%%%%%%%%
 
-if 0
+if debugPlot
+    figure(1);
     clf;
     plot(dnnBins, dnnHist/sum(dnnHist), danyBins, danyHist/sum(danyHist));
     legend('Nearest Neighbor', 'Any Neighbor')
@@ -116,12 +119,13 @@ results.xs = xs;
 results.dnnPDF = dnnPDF;
 results.danyPDF = danyPDF;
 
-if 0
+if debugPlot
+    figure(2);
     clf
     plot(xs/dScale, dnnPDF, xs/dScale, danyPDF);
     legend('Nearest Neighbor', 'Any Neighbor')
     title('Distance Distributions');
-    xlabel('Distance')
+    xlabel('Scaled Distance - mean(d_{any}) = 2')
     ylabel('PDF of Distance');
 end
 
@@ -163,7 +167,8 @@ end
 results.projAnyPDF = projAnyPDF;
 results.projNnPDF = projNnPDF;
 
-if 0
+if debugPlot
+    figure(3);
     subplot(2,1,1);
     vScale = max(dnnPDF*dScale)/max(projNnPDF*dScale);
     plot(xs/dScale, dnnPDF*dScale/vScale, xp/dScale, projNnPDF*dScale); 
@@ -227,10 +232,11 @@ if 0                % Is this still necessary?
 end
 
 
-if 0
+if debugPlot
+    figure(4)
     clf;
     semilogx(wList/dScale, [binNnProb' binAnyProb']);
-    legend('Pnn', 'Pany','Location','NorthWest');
+    legend('P_{nn}', 'P_{any}','Location','NorthWest');
     title('LSH Bucket Estimate')
     ylabel('Collision Probabilities')
     xlabel('Bin Width (w)')
@@ -333,7 +339,7 @@ binK(imag(binK) ~= 0.0 | binK < 1) = 1;     % Set bad values to at least 1
 % Inside of Eq. (39)
 temp =  ((binK.^r).*(binNnProb-binAnyProb)*N*uCheck.*((binAnyProb2./binAnyProb).^r))./ ...
     ((1-binNnProb).*uHash*factorial(r));
-wFullCost = (-log(deltaTarget))* uHash*(factorial(r))*((binNnProb./binNnProb2).^r)./ ...
+wFullCost = (-log(deltaTarget))* uHash*factorial(r)*((binNnProb./binNnProb2).^r)./ ...
     (binK.^r).*(1-binAnyProb)./(binNnProb-binAnyProb).* ...
         temp.^(log(binNnProb)./log(binAnyProb));
 results.wFullCost = wFullCost;
@@ -342,9 +348,14 @@ results.wFullCost = wFullCost;
 optimalW = wList(optimalBin)/dScale;
 
 optimalK = floor(binK(optimalBin));
+% optimalL = ceil(-log(deltaTarget)/ ...
+%     ( (optimalK^r)/factorial(r) * (binNnProb(optimalBin)^(optimalK-r)) * ...
+%       (binNnProb2(optimalBin)^r)));       % Wrong expression for C^r_k -
+%       Malcolm 9/8/2011
+                                        % Equation (42)
 optimalL = ceil(-log(deltaTarget)/ ...
-    ( (optimalK^r)/factorial(r) * (binNnProb(optimalBin)^(optimalK-r)) * ...
-    (binNnProb2(optimalBin)^r) ));
+    ( choose(optimalK,r) * (binNnProb(optimalBin)^(optimalK-r)) * ...
+      (binNnProb2(optimalBin)^r)));
 
 % Equations (48), (49) and (50) for optimalBin estimate.
 Ch = uHash * (-log(deltaTarget)) * ...
@@ -372,9 +383,14 @@ fprintf('\t\tK=%g L=%g cost is %g\n', ...
 % And print the statistics for L=1 for simple parameters.
 desiredOptimalK = round(optimalK);
 desiredOptimalL = round(optimalL);
-nnHitProbL1 = binNnProb(optimalBin)^desiredOptimalK;
-anyHitProbL1 = binAnyProb(optimalBin)^desiredOptimalK;
-
+% nnHitProbL1 = binNnProb(optimalBin)^desiredOptimalK;
+% anyHitProbL1 = binAnyProb(optimalBin)^desiredOptimalK;
+% From the definition of p_nn in Eq. (46)
+nnHitProbL1 = choose(desiredOptimalK, r)*binNnProb(optimalBin)^(desiredOptimalK-r)*...
+                            binNnProb2(optimalBin)^(r);
+anyHitProbL1 = choose(desiredOptimalK, r)*binAnyProb(optimalBin)^(desiredOptimalK-r)*...
+                            binAnyProb2(optimalBin)^(r);
+                        
 nnHitProb = 1 - (1-nnHitProbL1)^desiredOptimalL;
 anyHitProb = 1 - (1-anyHitProbL1)^desiredOptimalL;
 
@@ -389,7 +405,8 @@ fprintf('\tProbability of finding ANY for L=%d: %g\n', desiredOptimalL, anyHitPr
 fprintf('\tExpected number of hits per query: %g\n', anyHitProb*N);
 
 %%
-if 0
+if debugPlot
+    figure(5);
     clf
     subplot(4,1,1);
     semilogx(wList/dScale, [binNnProb' binAnyProb']);
@@ -401,6 +418,7 @@ if 0
 
     subplot(4,1,2);
     semilogx(wList/dScale, [log(binNnProb') log(binAnyProb')]);
+    title('LSH Bucket Estimate (Log Scale)')
     xlabel('Bin Width (w)');
     ylabel('Log(Collision Probabilities)');
     legend('Log(Pnn)', 'Log(Pany)', 'Location','NorthWest');
