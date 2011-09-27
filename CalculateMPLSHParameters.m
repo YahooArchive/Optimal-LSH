@@ -322,21 +322,24 @@ fprintf('\tExpected number of hits per query: %g\n', anyHitProb*N);
 %%
 %%%%%%%%%%%%%%%%%%%   EXACT PARAMETER ESTIMATION    %%%%%%%%%%%%%%%%%%%%%%
 % Now do it with the full optimal calculations
-% Eq. 41
+% Eq. 41 for all values of w
 alpha =  log((binNnProb-binAnyProb)./(1-binNnProb)) + ...
     r * log(binAnyProb2./binAnyProb) + log(uCheck/uHash) - log(factorial(r));
-% Eq. 40
+% Eq. 40 fir all values of w
 binK = (log(N)+alpha)./(-log(binAnyProb)) + ...
     r*log((log(N)+alpha)./(-log(binAnyProb)));
 binK(imag(binK) ~= 0.0 | binK < 1) = 1;     % Set bad values to at least 1
-% for iTemp  = 1:length(binK)
-%     if isreal(binK(iTemp)) ==0 | binK(iTemp) < 0
-%         binK(iTemp) = 1;
-%     end
-% end
+if 0                % Hopefully not necessary
+    for iTemp  = 1:length(binK)
+        if isreal(binK(iTemp)) ==0 | binK(iTemp) < 0
+            binK(iTemp) = 1;
+        end
+    end
+end
 
-% cost_HashOverCheck = uHash / uCheck;
-% Inside of Eq. (39)
+% Now we want to find the total cost for all values of w.  We will argmin
+% this for find the best w (This is the inside of Eq. 39.  We first compute
+% the inside of x^(log/log)
 temp =  ((binK.^r).*(binNnProb-binAnyProb)*N*uCheck.*((binAnyProb2./binAnyProb).^r))./ ...
     ((1-binNnProb).*uHash*factorial(r));
 wFullCost = (-log(deltaTarget))* uHash*factorial(r)*((binNnProb./binNnProb2).^r)./ ...
@@ -357,6 +360,12 @@ optimalL = ceil(-log(deltaTarget)/ ...
     ( choose(optimalK,r) * (binNnProb(optimalBin)^(optimalK-r)) * ...
       (binNnProb2(optimalBin)^r)));
 
+kVsW = floor(binK);
+% Don't let r get bigger than k (vs. W), which can happen for very small w.
+binL = ceil(-log(deltaTarget)./ ...
+    ( choose(kVsW, min(r, kVsW)) .* (binNnProb.^(binK-r)) .* ...
+      (binNnProb2.^r)));
+
 % Equations (48), (49) and (50) for optimalBin estimate.
 Ch = uHash * (-log(deltaTarget)) * ...
     factorial(r) * (binNnProb(optimalBin)./ binNnProb2(optimalBin))^r;
@@ -371,6 +380,8 @@ results.exactK = optimalK;
 results.exactL = optimalL;
 results.exactBin = optimalBin;
 results.exactCost = optimalCost;
+results.binK = binK;
+results.binL = binL;
 
 fprintf('Exact Optimization:\n');
 fprintf('\tFor %d %d-d data use: ', N, D);
@@ -527,3 +538,8 @@ results.localD = localD;
 % (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+
+function c = choose(n, k)
+% function c = choose(n, k)
+% Works for vectors of n
+c = factorial(n) ./ (factorial(k) .* factorial(n-k));
