@@ -1,0 +1,386 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"
+   "http://www.w3.org/TR/html4/strict.dtd">
+
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>LSH Classes and Functions</title>
+	<meta name="generator" content="TextMate http://macromates.com/">
+	<meta name="author" content="Malcolm Slaney">
+	<!-- Date: 2011-09-28 -->
+</head>
+<body>
+<H2>LSH Classes</H2>
+This LSH code is implemented with two classes (index and lsh) and one test class (TestDataClass).  These classes are used to implement the LSH algorithm described in this article: XXX
+
+This document describes three classes: <a href="#index">index</a>, <a href="#lsh">lsh (internal use only)</a>,
+<a href="#TestDataClass">TestDataClass</a>.  It also describes a simple command-line interface useful for
+testing the LSH code.
+
+
+<a name="index">
+<h3>Class: index</h3>
+This is the primary class used to implement an LSH index.  The <em>index</em> class accepts data, computes the projections, stores a pointer to the data in the tables, and answers nearest-neighbor queries.  The <em>index</em> class uses L copies of the <em>lsh</em> class to implement the projections.  This class just bundles the individual <em>lsh</em> classes together so one call hits all L <em>lsh</em> objects.
+<p>
+To use this class, create an <em>index</em> object and initialize it with the desired LSH index parameters.  Then send data to the object with AddToIndex().  Finally, call Find() or FindMP() to retrieve the nearest neighbors.
+<p>
+Note: All data passed to the LSH class must be a <a href="http://numpy.scipy.org/">NumPy</a> Dx1 array. (Transposed data doesn't work.)
+<DL>
+<DT>index(w, k, l)</DT>
+<DD>
+Create and return an <em>index</em> object.  The index has three parameters.
+<UL>
+	<li>w - The bucket width for the quantization.  (Use float('inf') for a binary LSH.)
+	</li>
+	<li>k - The number of projects per table.
+	</li>
+	<li>l - The number of k-dimensional tables for this LSH index.
+</ul>
+</DD>
+<p>
+<DT>sizeof()</DT>
+<DD>
+Returns the size of this index in bytes (only works for Python versions > 2.6)
+</DD>
+<p>
+<DT>InsertIntoTable(id, data)</DT>
+<DD>
+	Insert some data into the index (all L k-dimensional projections.)  Returns nothing.
+	<ul>
+		<li>id - object that identifies this data.  The id can be any Python object.  It is best if the id is an integer, but if another object is used, then this routine silently changes the id to an integer for internal use.
+		</li>
+		<li> data - The data to index.  The data must be an <a href="http://numpy.scipy.org/">NumPy</a> Dx1 array.
+		</li>
+	</ul>  
+</DD>
+<p>
+<DT>Find(data)</DT>
+<DD>
+	Find some data in all the LSH buckets. Return a list of matches, each match is a two-element tuple with the data's ID and the number of buckets that this item was found (a rough proxy for distance.)
+	data's id and bucket counts.
+	<ul>
+	<li> data - The data to index.  The data must be an <a href="http://numpy.scipy.org/">NumPy</a> Dx1 array.
+	</li>
+	</ul>
+</DD>
+<p>
+<DT>FindMP(data, radius)</DT>
+<DD>
+	Find some data in all the LSH buckets using multiprobe. Return a list of matches, each match is a two-element tuple with the data's ID and the number of buckets that this item was found (a rough proxy for distance.)
+	<ul>
+	<li> data - The data to index.  The data must be an <a href="http://numpy.scipy.org/">NumPy</a> Dx1 array.
+	</li>
+	<li>radius - multiprobe radius.  Multiprobe looks in adjacent bins to find possible matches.
+		The radius specifies the number of coordinates to modify, or the Hamming radius.  A radius of 0 is without multiprobe.  A radius of 1 means only one coordinate (projection id) is changed.  A radius of 2 means up to two coordinates are changed.
+	</ul>
+</DD>
+</DL>
+<p>
+
+<DT>FindExact(data, GetDataFunction)</DT>
+<DD>
+	Find some data in all the LSH buckets. Return a list of matches, each match is a three-element tuple with the data's ID, the true distance, and the number of buckets that this item was found (a rough proxy for distance.)
+	<ul>
+	<li> data - The data to index.  The data must be an <a href="http://numpy.scipy.org/">NumPy</a> Dx1 array.
+	</li>
+	<li>GetDataFunction - A function which will be called with an ID (from InsertIntoTable) that returns the original data.  This function is used to calculate the true distance.
+	</ul>
+</DD>
+<p>
+
+<a name="lsh">
+<h3>Class: lsh (internal class)</h3>
+The <em>lsh</em> class is for internal use only.  It's documented here for completeness and to allow others to extend the class.    Do not class this class directly.  Instead use the <em>index</em> class above.
+<p>
+	Each <em>index</em> class includes L <em>lsh</em> classes.  The <em>lsh</em> class implements the guts of the LSH algorithm, the k-dimensional projections.
+</p>
+<p>
+	This class implements one k-dimensional projection, the T1/T2 hashing
+	and stores the results in a table for later retrieval.  Input parameters
+	are the bin width (w, a floating point number, or float('inf') to get binary LSH), 
+	and the number of projections to compute for one table entry (k, an integer).
+</P>
+<DL>
+<DT>lsh(w, k)</DT>
+<DD>
+Create and return an <em>index</em> object.  The index has three parameters.
+<UL>
+	<li>w - The bucket width for the quantization.  (Use float('inf') for a binary LSH.)
+	</li>
+	<li>k - The number of projects per table.
+	</li>
+</ul>
+</DD>
+<p>
+<DT>sizeof()</DT>
+<DD>
+Returns the size of this <em>lsh</em> structure in bytes (only works for Python versions > 2.6)
+</DD>
+<p>
+<DT>InsertIntoTable(id, data)</DT>
+<DD>
+	Insert some data into the index (all L k-dimensional projections.)  Returns nothing.
+	<ul>
+		<li>id - object that identifies this data.  The id can be any Python object.
+		</li>
+		<li> data - The data to index.  The data must be an <a href="http://numpy.scipy.org/">NumPy</a> Dx1 array, where D is the dimensionality of the data.
+		</li>
+	</ul>  
+</DD>
+<p>
+<DT>CreateProjections(dim)</DT>
+<DD>Create the k x dim random Gaussian projection and the kx1 bias arrays we will use for this <em>lsh</em> instance.
+	<ul>
+		<li>dim - The dimensionality of the data.
+	</ul>
+</DD>
+<p>
+<DT>CalculateHashes(data)</DT>
+<DD>Calculate the k projections.  Multiply the projection data (KxD) by the input data (Dx1), add the random bias terms, and quantize by w.
+	<ul>
+		<li> data - The data to project.  The data must be an <a href="http://numpy.scipy.org/">NumPy</a> Dx1 array, where D is the dimensionality of the data.
+	</ul>
+</DD>
+<p>
+<DT>ListHash(lshdata)</DT>
+<DD>Compute a 28-bit hash value from a kx1 array of bucket ids (integers).
+This function is necessary since Python doesn't hash NumPy arrays.  This algorithm is from
+http://stackoverflow.com/questions/2909106/python-whats-a-correct-and-good-way-to-implement-hash/2909572#2909572	
+</DD>
+<p>
+	<DT>CalculateHashIterator(data, multiprobeRadius=0)</DT>
+	<DD>This is an iterator function which generates all possible multiprobe hashes for this data query. This function is called by the FindMP() method, which collects all the nearest-neighbor candidates into a single list. Depending on the value of the multiprobe radius r, all buckets with a Hamming distance less than 1 along the side closest to the query will be checked for candidates.
+		<ul>
+			<li> data - The data to project.  The data must be an <a href="http://numpy.scipy.org/">NumPy</a> Dx1 array, where D is the dimensionality of the data.
+			<li> multiprobeRadius - The maximum Hamming distance to check for nearest-neighbor candidates.
+		</ul>
+	At each iteration, this iterator returns a two-element tuple with the T1 and T2 hash values.
+	</DD>
+	<p>
+	<DT>InsertIntoTable(id, data)</DT>
+	<DD>
+		Insert some data into the index (all L k-dimensional projections.)  Returns nothing.
+		<ul>
+			<li>id - object that identifies this data.  The id can be any Python object.  It is best if the id is an integer, but if another object is used, then this routine silently changes the id to an integer for internal use.
+			</li>
+			<li> data - The data to index.  The data must be an <a href="http://numpy.scipy.org/">NumPy</a> Dx1 array.
+			</li>
+		</ul>  
+	</DD>
+	<p>
+	<DT>Find(data)</DT>
+	<DD>
+		Find some data in all the LSH buckets. Return a list of matches, each match is a two-element tuple with the data's ID and the number of buckets that this item was found (a rough proxy for distance.)
+		data's id and bucket counts.
+		<ul>
+		<li> data - The data to index.  The data must be an <a href="http://numpy.scipy.org/">NumPy</a> Dx1 array.
+		</li>
+		</ul>
+	</DD>
+	<p>
+	<DT>FindMP(data, radius)</DT>
+	<DD>
+		Find some data in all the LSH buckets using multiprobe. Return a list of matches, each match is a two-element tuple with the data's ID and the number of buckets that this item was found (a rough proxy for distance.)
+		<ul>
+		<li> data - The data to index.  The data must be an <a href="http://numpy.scipy.org/">NumPy</a> Dx1 array.
+		</li>
+		<li>radius - multiprobe radius.  Multiprobe looks in adjacent bins to find possible matches.
+			The radius specifies the number of coordinates to modify, or the Hamming radius.  A radius of 0 is without multiprobe.  A radius of 1 means only one coordinate (projection id) is changed.  A radius of 2 means up to two coordinates are changed.
+		</ul>
+	</DD>
+</DL>
+
+<a name="TestDataClass">
+<h3>Class: TestDataClass</h3>
+This is a useful base class upon which data storage representations can be built.  The basic class stores a set of data in memory, and provides several services that are useful when implementing an index based on LSH.  This is important since the LSH class does <em>not</em> provide any data storage.  This class implements a simple storage mechanism.  Specializations of this class can be built to handle custom storage requirements. (Such as reading custom file formats to get the raw data.)  
+
+The base class reads data from a flat file, stores it in memory, and puts it into an LSH index.  This code distribution provides one specialization, <em>RandomTestData</em> that creates random data for testing.  Further extensions of this class might leave data on disk, or consult a real database.
+
+<DL>
+	<DT>TestDataClass()</DT>
+	<DD>The base class.  Returns a generic <em>TestDataClass</em>.
+		</DD>
+	<p>
+	<DT>LoadData(filename)</DT>
+	<DD>Load numeric data from a flat ASCII file. Each line is a single (multidimensional) point.  
+		All lines should have the same dimensionality.  Numbers are separated by white space (tabs or spaces). 
+		There is no tag or identity for each line, instead data points are referred to by line number
+		(starting with zero.)  In other words, a nearest-neighbor query that wants to return the first
+		datapoint will return the identity of zero.
+		<UL>
+			<LI>filename - The name of an accessible file from which to read the numeric data.
+				</LI>
+		</UL>
+		This function stores the data internally, so nothing is returned.
+	</DD>
+	<p>
+	<DT>SaveData(filename)</DT>
+	<DD>Save all numeric data saved in this class in a flat file.  One line per data point, just like 
+		the format read by LoadData().
+		<UL>
+			<LI>filename - The name of an accessible file from which to read the numeric data.
+				</LI>
+		</UL>
+	</DD>
+	<p>
+	<DT>RetrieveData(id)</DT>
+	<DD>Retrieve one piece of data from the internal storage.
+	<UL>
+		<LI>id - The id of the data.  This is a zero-based counter for the base class, but class extensions
+			might use strings.
+			</LI>
+	</UL>
+	</DD>
+	<p>
+	<DT>NumPoints()</DT>
+	<DD>Return the number of points that have been loaded into the dataset. This is equal, for the base class
+		 to the number
+		of lines in the original data file.  Class extensions might change this.
+		</DD>
+	<p>
+	<DT>NumDimensions()</DT>
+	<DD>Return the dimensionality of each data point.  In the base class this is equal to the number of 
+		tokens on each line of the input file.
+	</DD>
+	<p>
+	<DT>GetRandomQuery()</DT>
+	<DD>Returns the ID of a random data point from the archive. For the base class this is a number between
+		zero and the number of data points minus 1.
+	</DD>
+	<p>
+	<DT>FindNearestNeighbors(count)</DT>
+	<DD>Perform an exhaustive search for the nearest neighbors to a random set of queries.
+		For each query, chosen using the GetRandomQuery() function, we search through all the data 
+		looking for the nearest neighbor.  The results are stored in an internal dictionary. 
+		This data can be used for computing distance histograms and measuring LSH performance.
+	</DD>
+	<p>
+	<DT>SaveNearestNeighbors(filename)</DT>
+	<DD>Save the nearest neighbor data into a file. The data is stored in the file, one line per query. 
+		Each line contains the ID of the query, the distance to the nearest neighbor, and the ID of the
+		nearest neighbor.
+	<UL>
+		<LI>filename - The name of an accessible file where the data should be stored.
+		</LI>
+	</UL>
+	</DD>
+	<p>
+	<DT>LoadNearestNeighbors(filename)</DT>
+	<DD>Load nearest neighbor data from a file. The data is stored in the file, one line per query. 
+		Each line contains the ID of the query, the distance to the nearest neighbor, and the ID of the
+		nearest neighbor.
+	<UL>
+		<LI>filename - The name of an accessible file where the data should be read.
+		</LI>
+	</UL>
+	</DD>
+	<p>
+	<DT>IterateKeys()</DT>
+	<DD>Iterate through all possible keys in the dataset. For each iteration, return the ID of a point 
+		in the dataset.
+	</DD>
+	<p>
+	<DT>ComputeDistanceHistogram(fp = sys.stdout)</DT>
+	<DD>Iterate through all known nearest neighbors and calculate the distance statistics needed to 
+		calculate the optimal LSH parameters. For each query-nearest-neighbor pair output the following
+		quantities on one line of the output file.
+		<UL>
+			<LI>Distance to the nearest neighbor, d_nn</LI>
+			<LI>Distance to any random point in the dataset, d_any</LI>
+			<LI>Probability that a random projection will put the query and the nearest neighbor into the 
+				same bucket of a binary quantization (left or right of zero)</LI>
+			<LI>Probability that a random projection will put the query and the nearest neighbor into the 
+				same bucket of a binary quantization (left or right of zero)</LI>
+		</UL>
+		This data can be read into Matlab and used to create the d_nn and d_any histograms that are input
+		to the Matlab routine CalculateLSHParameters()
+	</DD>
+	<p>
+	<DT>ComputePnnPany(w, k, l, multiprobe=0)</DT>
+	<DD>
+		Compute the P_nn and P_any probabilities for one instance of the LSH index. This function 
+		creates an LSH index, given the input parameters; loads all the data into the index; queries
+		the database with all known query-nearest-neighbor pairs; and then reports the true performance
+		of the index.  It is the core of several other higher-level testing routines.
+		<UL>
+			<LI>w - Bucket width for the LSH index</LI>
+			<LI>k - Number of projections per table, an integer</LI>
+			<LI>l - Number of tables per index, an integer</LI>
+			<LI>r - Multiprobe radius, a Hamming distance, an integer</LI>
+		</UL>
+		This function returns a tuple consisting of the following fields.
+		<UL>
+			<LI>p_nn_1 - The probability that the query and its nearest neighbor fall in the same bin 
+				for one table (l=1).  This happens after forming k projections and quantizing by w.</LI>
+			<LI>p_nn_full - The probability that the query and its nearest neighbor fall in the same bin 
+					for all l tables.  This happens after forming k projections, quantizing by w and
+					then checking all l tables.</LI>
+			<LI>p_any_1 - The probability that the query and any neighbor fall in the same bin 
+				for one table (l=1).  This happens after forming k projections and quantizing by w.</LI>
+			<LI>p_any_full - The probability that the query and any neighbor fall in the same bin 
+					for all l tables.  This happens after forming k projections, quantizing by w and
+					then checking all l tables.</LI>
+			<LI>queryTime - CPU time in seconds needed for answering each query over all L tables.</LI>
+			<LI>numDims - The number of dimensions in the input data 
+				(for assembling the right results together.)</LI>
+		</UL>
+	</DD>
+	<p>
+	<DT>ComputePnnPanyCurve(wList = .291032, multiprobe=0)</DT>
+	<DD>Compute the P_nn and P_any distributions for a single projection (k=1). For each w in the wList
+		create an LSH index, load the data into the index, query the database with all known 
+		query-nearest-neighbor pairs, and report the performance.
+		<UL>
+			<LI>wList - a list of bucket sizes (w) to try.</LI>
+		</UL>
+		This routine prints the following quantities to standard output
+		<UL>
+			<LI>w - bucket width for this test</LI>
+			<LI>p_nn - Probability that query and nearest neighbors fell into the same bin</LI>
+			<LI>p_any - Probability that query and any neighbor fell into the same bin</LI>
+			<LI>queryTime - Amount of CPU time (seconds) needed to answer each query.
+		</UL>
+		If all goes well, the result is a curve that looks like this one.<br>
+		<img src="example6.png" alt="pnn and pany curve">
+	</DD>
+	<p>
+	<DT>ComputeKCurve(kList, w = .291032)</DT>
+	<DD>Compute the number of ANY neighbors as a function of
+		k.  Should go down exponentially.
+		<UL>
+			<LI>kList - a list of projection counts (k) to try.</LI>
+		</UL>
+		This routine prints the following quantities to standard output
+		<UL>
+			<LI>w - bucket width for this test</LI>
+			<LI>k - Number of projections per table in this test</LI>
+			<LI>l - Number of tables per index in this test</LI>
+			<LI>p_nn - Probability that query and nearest neighbors fell into the same bin</LI>
+			<LI>p_any - Probability that query and any neighbor fell into the same bin</LI>
+			<LI>numCandidates - Number of candidate points that must be evaluated by checking
+				their distance.  This is equal to p_any*NumPoints()</LI>
+			<LI>queryTime - Amount of CPU time (seconds) needed to answer each query.
+		</UL>
+		If all goes well, the result is a curve that looks like this one.<br>
+		To be done!
+	</DD>
+	<p>
+	<DT>ComputeLCurve(lList, w = 2.91032, k=10)</DT>
+	<DD>Compute the probability of nearest neighbors as a function
+		of l.
+		<UL>
+			<LI>lList - a list of table counts (l) to try.</LI>
+			<LI>w - the bucket size</LI>
+			<LI>k - the number of projections per table</LI>
+		</UL>
+		If all goes well, the result is a curve that looks like this one.<br>
+		To be done!
+	</DD>
+	<p>
+				
+				
+	
+		
+</body>
+</html>

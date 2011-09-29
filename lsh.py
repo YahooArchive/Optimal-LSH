@@ -73,10 +73,13 @@ import itertools					# For Multiprobe
 # table, or retrieved.
 
 class lsh:
-	def __init__(self, w, k, N):
+	'''This class implements one k-dimensional projection, the T1/T2 hashing
+	and stores the results in a table for later retrieval.  Input parameters
+	are the bin width (w, floating point, or float('inf') to get binary LSH), 
+	and the number of projections to compute for one table entry (k, an integer).'''
+	def __init__(self, w, k):
 		self.k = k	# Number of projections
 		self.w = w	# Bin width
-		self.N = N	# Number of buckets
 		self.projections = None
 		self.buckets = {}
 
@@ -273,7 +276,7 @@ class lsh:
 
 
 	# Print some stats for these lsh buckets
-	def Stats(self):
+	def StatsXXX(self):
 		maxCount = 0; sumCount = 0; 
 		numCount = 0; bucketLens = [];
 		for b in self.buckets:
@@ -290,8 +293,8 @@ class lsh:
 		med = theValues[(len(theValues)+1)/2-1]
 		print "Bucket Counts:"
 		print "\tTotal indexed points:", sumCount
-		print "\tT1 Buckets filled: %d/%d" % (len(self.buckets), self.N)
-		print "\tT2 Buckets used: %d/%d" % (numCount, self.N)
+		print "\tT1 Buckets filled: %d/%d" % (len(self.buckets), 0)
+		print "\tT2 Buckets used: %d/%d" % (numCount, 0)
 		print "\tMaximum T2 chain length:", maxCount, "at", maxLoc
 		print "\tAverage T2 chain length:", float(sumCount)/numCount
 		print "\tMedian T2 chain length:", med
@@ -345,15 +348,14 @@ class lsh:
 # new parameter is the number of groups of projections (one LSH class
 # object per group.)
 class index:
-	def __init__(self, w, k, l, N = 1<<31):
+	def __init__(self, w, k, l):
 		self.k = k; 
 		self.l = l
 		self.w = w
-		self.N = N
 		self.projections = []
 		self.myIDs = []
 		for i in range(0,l):	# Create all LSH buckets
-			self.projections.append(lsh(w, k, N))
+			self.projections.append(lsh(w, k))
 
 	# Only works for Python > 2.6
 	def sizeof(self):
@@ -526,7 +528,7 @@ def LoadIndex(filename):
 
 class TestDataClass:
 	'''A bunch of routines used to generate data we can use to test
-	# this LSH implementation.'''
+	this LSH implementation.'''
 	def __init__(self):
 		self.myData = None
 		self.myIndex = None
@@ -755,7 +757,7 @@ class TestDataClass:
 				print "Can't find data for key %s" % str(queryKey)
 				sys.stdout.flush()
 				continue
-			startQueryTime = time.clock()
+			startQueryTime = time.clock()	# Measure CPU time
 			matches = self.myIndex.FindMP(queryData, multiprobe)
 			totalQueryTime += time.clock() - startQueryTime
 			for (m,c) in matches:
@@ -775,13 +777,14 @@ class TestDataClass:
 			queryCount = 1					# To prevent divide by zero
 		perQueryTime = totalQueryTime/queryCount
 		return cnn/float(queryCount*l), cnnFull/float(queryCount), \
-			cany/float(queryCount*l*numPoints), canyFull/float(queryCount*numPoints), perQueryTime
+			cany/float(queryCount*l*numPoints), canyFull/float(queryCount*numPoints), \
+			perQueryTime, numDims
 
 	def ComputePnnPanyCurve(self, wList = .291032, multiprobe=0):
 			if type(wList) == float or type(wList) == int:
 				wList = [wList*10**((i-10)/10.0) for i in range(0,21)]
 			for w in wList:
-				(pnn, pnnFull, pany, panyFull, queryTime) = self.ComputePnnPany(w, 1, 10, multiprobe)
+				(pnn, pnnFull, pany, panyFull, queryTime, numDims) = self.ComputePnnPany(w, 1, 10, multiprobe)
 				if w == wList[0]:
 					print "# w pnn pany queryTime"
 				print w, pnn, pany, queryTime
@@ -793,7 +796,7 @@ class TestDataClass:
 		numPoints = self.NumPoints()
 		l = 10
 		for k in sorted(list(kList)):
-			(pnn, pnnFull, pany, panyFull, queryTime) = self.ComputePnnPany(w, k, l)
+			(pnn, pnnFull, pany, panyFull, queryTimem, numDims) = self.ComputePnnPany(w, k, l)
 			print w, k, l, pnn, pany, pany*numPoints, queryTime
 			sys.stdout.flush()
 
@@ -803,7 +806,7 @@ class TestDataClass:
 		numPoints = self.NumPoints()
 		firstTime = True
 		for l in sorted(list(lList)):
-			(pnn, pnnFull, pany, panyFull, queryTime) = self.ComputePnnPany(w, k, l)
+			(pnn, pnnFull, pany, panyFull, queryTime, numDims) = self.ComputePnnPany(w, k, l)
 			if firstTime:
 				print "# w k l pnnFull, panyFull panyFull*N queryTime"
 				firstTime = False
@@ -1028,7 +1031,7 @@ if __name__ == '__main__':
 			except:
 				print "Couldn't parse new value for w: %s" % arg
 			print 'New default W for test is', defaultW
-		elif arg == '-mp':
+		elif arg == '-r':
 			arg = sys.argv.pop(0)
 			try:
 				defaultMultiprobeRadius = int(arg)
@@ -1087,6 +1090,27 @@ if __name__ == '__main__':
 			lList = [math.floor(math.sqrt(2)**k) for k in range(0,10)]
 			lList = [1,2,3,4,5,6,10]
 			myTestData.ComputeLCurve(lList, w=defaultW, k=10)
+		elif arg == '-timing':
+			# sys.argv.pop(0)
+			timingModels = []
+			while len(sys.argv) > 0:
+				print "Parsing timing argument", sys.argv[0], len(sys.argv)
+				if sys.argv[0].startswith('-'):
+					break
+				try:
+					(w,k,l,r,rest) = sys.argv[0].strip().split(',', 5)
+					timingModels.append([float(w), int(k), int(l), int(r)])
+				except:
+					print "Couldn't parse %s.  Need w,k,l,r" % sys.argv[0]
+				sys.argv.pop(0)
+			myTestData = TestDataClass()
+			myTestData.LoadData('testData%03d.dat' % defaultDims)
+			myTestData.LoadNearestNeighbors('testData%03d.nn' % defaultDims)
+			for (w, k, l, r) in timingModels:
+				sys.stdout.flush()
+				(pnnL1, pnn, panyL1, pany, perQueryTime, numDims) = myTestData.ComputePnnPany(w, k, l, r)
+				print "Timing:", w, k, l, r, myTestData.NumPoints(), pnn, pany, perQueryTime*1000.0, numDims
+		
 		elif arg == '-test':		# Calculate bucket probabilities as a function of l
 			random.seed(0)
 			myTestData = TestDataClass()

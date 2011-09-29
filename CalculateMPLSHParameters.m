@@ -543,3 +543,26 @@ function c = choose(n, k)
 % function c = choose(n, k)
 % Works for vectors of n
 c = factorial(n) ./ (factorial(k) .* factorial(n-k));
+
+%%
+function normed = NormalizePDF(y,x)
+
+x = [2*x(1)-x(2) x(:)' 2*x(end)-x(end-1)];
+dx = (x(3:end)-x(1:end-2))/2;
+area = dx .* y;
+normed = y/sum(area);
+
+
+if 0
+    t1 = 0:.1:pi;
+    y1 = sin(t1);
+    t2 = 0:.24:pi;
+    y2 = sin(t2);
+    n1 = NormalizePDF(y1, t1);
+    n2 = NormalizePDF(y2, t2);
+    clf; hold on
+    plot(t1, n1);
+    plot(t2, n2);
+    hold off
+end
+
