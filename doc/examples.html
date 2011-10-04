@@ -68,14 +68,17 @@ This page documents some examples you can run using the Python LSH
 code.   Use these examples to learn how the code works, and to verify 
 that your installation is producing the same results.
 <p>
-Run this Python command to generate some data and create the 
-neighbor histograms.
+Run this Python command to generate some data.  This creates the testData005.data and testData005.nn
+files, which contain the raw data and the nearest-neighbor data.
+<PythonCode> python2.6 lsh.py -d 5 -histogram 
+</PythonCode>
+Now we can create the distance histograms.
 <PythonCode> python2.6 lsh.py -d 5 -histogram 
 </PythonCode>
 This Matlab code reads in the newly created distance data.
 <MatlabCode>load testData005.distances
 </MatlabCode>
-Given the distance data, 
+Given this distance data, 
 we can calculate the optimal LSH statistics.  Do this for
 a small set of multiprobe distances (r=0:3)
 <MatlabCode>D=5;
@@ -134,7 +137,7 @@ shown with a red 'x' for both the exact and simplified calculations.
 <hr>
 Now we can run some of the statistical tests.  First lets measure
 recall as a function of bin width (w).
-<PythonCode>python2.6 lsh.py -w 2.842 -k 22 -l 3 -mp 0 -d 5 -wtest
+<PythonCode>python2.6 lsh.py -w 2.842 -k 22 -l 3 -r 0 -d 5 -wtest
 </PythonCode>
 
 <MatlabCode>wTest=[0.002775390625 0.00613682092555 0.000570710261569 0.00247037726358 
@@ -169,7 +172,7 @@ title('Bucket Probabilities for a Single Projection');
 </MatlabCode>
 <img src='Example6.png'><br>
 Now let's look at performance as a function of the number of projections (k).
-<PythonCode>python2.6 lsh.py -w 2.842 -k 22 -l 3 -mp 0 -d 5 -ktest
+<PythonCode>python2.6 lsh.py -w 2.842 -k 22 -l 3 -r 0 -d 5 -ktest
 </PythonCode>
 This produces a table of numbers which we can cut and paste into Matlab.
 <MatlabCode>% print w, k, l, pnn, pany, pany*numPoints, queryTime

@@ -12,10 +12,21 @@
 </head>
 <body>
 <H2>LSH Classes</H2>
-This LSH code is implemented with two classes (index and lsh) and one test class (TestDataClass).  These classes are used to implement the LSH algorithm described in this article: XXX
-
+This package includes a Python implementation of locality-sensitive hashing (LSH).  The code is reasonably
+efficient for high-dimensional data because most of the computational cost 
+is in working with the numerical data, and
+these (vector) routines are natively implemented with BLAS.  
+This Python code also provides a convenient test bed, and
+was used to produce the figures in the article.
+<p>
+This LSH code is implemented with two classes (index and lsh) and one test class (TestDataClass).  These classes are used to implement the LSH algorithm described in this article: 
+	Malcolm Slaney, Yury Lifshits, Junfeng He, "Optimal
+	Locality-Sensitive Hashing," Submitted to Proceedings of the 
+	IEEE, Special Issue on Web-Scale Multimedia, Summer 2012.
+<p>
 This document describes three classes: <a href="#index">index</a>, <a href="#lsh">lsh (internal use only)</a>,
-<a href="#TestDataClass">TestDataClass</a>.  It also describes a simple command-line interface useful for
+<a href="#TestDataClass">TestDataClass</a>.  It also describes a simple 
+<a href="CommandLineInterface">command-line interface</a> useful for
 testing the LSH code.
 
 
@@ -379,7 +390,46 @@ The base class reads data from a flat file, stores it in memory, and puts it int
 	</DD>
 	<p>
 				
-				
+<a name="CommandLineInterface">
+<h3>Command Line Interface</h3>
+The LSH code also includes a simple command-line interface useful for testing the basic LSH algorithm.
+You can see examples of its usage in the examples file.
+<p>
+There are two types of parameters to the main test program.  First, a number of command line 
+options control the basic LSH index.  
+<UL>
+	<LI>-d #: The default dimensions for the test.  For some tests this is used to create the random
+		dataset, while for others it is used to create the file where the random data (and nearest 
+		neighbors) is read.</LI>
+	<LI>-k #: The default number of projections to calculate per table.</LI>
+	<LI>-l #: The default number of tables per index to create.</LI>
+	<LI>-w #: The default bucket size for quantizing a projection.</LI>
+	<LI>-c #: The count of nearest neighbors to compute.</LI>
+	<LI>-r #: The default multiprobe (Hamming) distance.</LI>
+	<LI>-f filename: Use the next argument as the base filename for the tests that follow.</LI>
+</UL>
+Second, other options tell the program what tests to run.
+<UL>
+	<LI>-create: Create a set of random d-dimensional data and compute the nearest
+		neighbors.  This is useful so all the following steps use the same data (and computing 
+		the nearest neighbors once is a good idea.)  This routine does the 
+		following steps.
+		<OL>
+			<LI>Creates a database of 100k d-dimensional data points</LI>
+			<LI>Stores the data in a file with a name equal to 'testData%03d.dat' % defaultDims</LI>
+			<LI>Finds the nearest neighbors for "count" (see -c above) random queries.</LI>
+			<LI>Saves the nearest neighbor data with a file name equal to 'testData%03d.nn' % defaultDims</LI>
+		</OL>
+	<LI>-histogram: Create a distance histogram for random d-dimensional data.  This routine does the 
+		following steps.
+		<OL>
+			<LI>Computes the distance histograms and saves the data  into a file with the
+				name 'testData%03d.distances' % defaultDims </LI>
+		</OL>
+		All this data can be used as input to the Matlab CalculateMPLSHParameters() routine.
+	</LI>
+	<LI>
+</UL>			
 	
 		
 </body>
