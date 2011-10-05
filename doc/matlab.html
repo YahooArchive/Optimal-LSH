@@ -11,12 +11,184 @@
 </head>
 <body>
 <H2>Matlab Optimization</H2>
-This page documents the Matlab code that will calculate the optimal LSH parameters for any data set.
+This page documents the Matlab code that calculates the optimal LSH parameters for any data set.
 <p>
-	The data used as input to this routine are distance histograms.  The user specifies the cost of 
-	computing the table index (time), the cost of calculating a candidate point's distance (time), 
-	and a desired accuracy (probability).  The output from this routine are the optimal LSH parameters.
+	The primary input data to this routine are distance histograms.  The user specifies the cost of 
+	computing the table index (U_hash, a time), the cost of calculating a candidate point's distance (U_check, a time), 
+	and a desired accuracy (delta, a probability of missing the true nearest neighbor).  The output from this routine are the optimal LSH parameters.
 	</P>
-	
+
+<H4>Function Protypes</H4>
+<UL>
+function results = CalculateLSHParameters(N, dnnHist, dnnBins, danyHist, danyBins)
+<br>
+function results = CalculateLSHParameters(N, dnnHist, dnnBins, danyHist, danyBins, deltaTarget, r, uHash, uCheck)
+<br>
+function results = CalculateLSHParameters(N, D)
+</UL>
+<p>
+	The first two calls are the normal situation.  
+	The last call tells this function to calculate some random data D-dimensional data for testing.</p>
+<p>Note: the current version of this routine needs the jlab library from: 
+	<a href="http://www.jmlilly.net/jmlsoft.html">http://www.jmlilly.net/jmlsoft.html</a>
+	</p>
+<H4>Input Parameters</H4>
+The following parameters are the normal input parameters.
+<UL>
+<DL>
+	<DT>N</DT>
+	<DD>The number of points in the dataset. This is needed to calculate the number of candidates
+		(mostly false positives).</DD>
+	<DT>dnnHist</DT>
+	<DD>The nearest-neighbor histogram.  These are bin counts for the bins centered on the dnnBins
+		points.</DD>
+	<DT>dnnBins</DT>
+	<DD>The locations of the nearest-neighbor histogram bins.
+	</DD>
+	<DT>danyHist</DT>
+	<DD>The any-neighbor histogram.  These are bin counts for the bins centered on the danyBins
+		points.</DD>
+	<DT>danyBins</DT>
+	<DD>The locations of the any-neighbor histogram bins.
+	</DD>
+</DL>
+</ul>
+The following parameters are optional.  Their default values are shown in parenthesis.
+<UL>
+<DL>
+	<DT>deltaTarget (exp(-1))</DT>
+	<DD>The probability that we miss the true nearest neighbor.  Smaller numbers give more accurate
+		results, but require more computational resources.</DD>
+	<DT>r (0)</DT>
+	<DD>The multiprobe Hamming distance.  Check nearby buckets, with a Hamming distance (difference)
+		less than or equal to this parameter.  Larger values check more buckets.</DD>
+	<DT>uHash (1)</DT>
+	<DD>The cost to do one table calculation.  This involves calculating k projections, calculating
+		the T1 and T2 hashes, and then looking up the candidates in the appropriate buckets.  The units 
+		are arbitrary and should be the same as those for uCheck (i.e. ms).</DD>
+	<DT>UCheck (1)</DT>
+	<DD>The cost to do one distance calculation.  Each candidate returned by LSH should be checked to
+		make sure it is not a false positive.  This involves <em>D</em> differences and squares.
+		The units are arbitrary and should be the same as those for uHas (i.e. ms).</DD>
+</DL>
+</UL>
+<H4>Output Parameters</H4>
+The CalculateLSHParameters prints a summary of the optimal results and a single Matlab structure 
+with all the details.
+<p>
+	The printed output looks something like the output shown below.
+<UL><pre>
+Scaling all distances by 0.00831566 for easier probability calcs.
+Simple Approximation:
+	For 100000 1000-d data use: w=464.812 and get 0.602357 hits per bin and 0.778889 nn.
+		K=22 L=45 cost is 873.871
+Expected statistics: for simple approximation
+	Assuming K=22, L=45, hammingR=1
+	Probability of finding NN for L=1: 0.00409695
+	Probability of finding ANY for L=1: 1.43476e-05
+	Probability of finding NN for L=45: 0.168681
+	Probability of finding ANY for L=45: 0.000645439
+	Expected number of hits per query: 64.5439
+Exact Optimization:
+	For 100000 1000-d data use: w=443.851 and get 0.586314 hits per bin and 0.768484 nn.
+		K=22 L=100 cost is 689.891
+Expected statistics for optimal solution:
+	Assuming K=22, L=100, hammingR=1
+	p_nn(w) is 0.768484
+	p_any(w) is 0.586314
+	Probability of finding NN for L=1: 0.0100956
+	Probability of finding ANY for L=1: 5.96489e-05
+	Probability of finding NN for L=100: 0.637487
+	Probability of finding ANY for L=100: 0.00594731
+	Expected number of hits per query: 594.731
+</pre></UL>
+The results structure contains many details that allow for better understanding of the results. 
+The meaning of some of the fields is described below. The first set mirror the input parameters
+to allow one to know where the results structure came from.
+<UL>
+<DL>
+	<DT>uHash</DT><DD>The value of the U_hash cost parameter used as input to this routine.</DD>
+	<DT>uCheck</DT><DD>The value of the U_check cost parameter used as input to this routine.</DD>
+	<DT>N</DT><DD>The value of the N parameter (number of points in dataset) 
+		used as input to this routine.</DD>
+	<DT>D</DT><DD>The value of the D parameter (the dimensionality of each data point) 
+		used as input to this routine.</DD>
+	<DT>multiprobeR</DT><DD>The value of the R parameter (the permissible Hamming distance for 
+		multiprobe checks) used as input to this routine.</DD>
+	<DT>dnnHist</DT><DD>The value of the dnnHist parameter (the d_nn histogram values) 
+		used as input to this routine.</DD>
+	<DT>dnnBins</DT><DD>The value of the dnnBins parameter (the d_nn histogram bucket locations) 
+		used as input to this routine.</DD>
+	<DT>danyHist</DT><DD>The value of the danyHist parameter (the d_any histogram values) 
+		used as input to this routine.</DD>
+	<DT>danyBins</DT><DD>The value of the danyBins parameter (the d_any histogram bucket locations) 
+		used as input to this routine.</DD>
+	<DT>delta</DT><DD>The value of the delta parameter (error probability) 
+		used as input to this routine.</DD>
+</DL>
+</UL>
+The next fields are internal variables, as described it the optimization paper, used to calculate
+the final results.
+<UL>
+<DL>
+	<DT>dScale</DT><DD>The amount of x-axis scaling used in distance calculations. (Not doing this
+		makes the probability inversion difficult because the original and the inverse PDFs do 
+		not fit in the same sampling scale.) The dScale variable is multiplied by the original
+		distances to get scaled distances used internally. </DD>
+	<DT>xs</DT><DD>The scaled x-axis used as the sampling positions for the distance arrays that follow.</DD>
+	<DT>dnnPDF</DT><DD>The calculated nearest-neighbor PDF (scaled axis).</DD>
+	<DT>danyPDF</DT><DD>The calculated any-neighbor PDF (scaled axis).</DD>
+	<DT>xp</DT><DD>The scaled x-axis used as the sampling positions for projection operations.</DD>
+	<DT>projNnPDF</DT><DD>The calculated PDF of the nearest-neighbor projection.</DD>
+	<DT>projAnyPDF</DT><DD>The calculated PDF of the any-neighbor projection.</DD>
+	<DT>binNnProb</DT><DD>The calculated probability that the nearest neighbor lands in the 
+		same bucket as the query.</DD>
+	<DT>binAnyProb</DT><DD>The calculated probability that any neighbor lands in the 
+		same bucket as the query.</DD>
+	<DT>binNnProb2</DT><DD>The calculated probability that the nearest neighbor lands in the 
+		a bucket that is next to the query's bucket (Hamming distance of 1).</DD>
+	<DT>binAnyProb2</DT><DD>The calculated probability that any neighbor lands in the 
+		a bucket that is next to the query's bucket (Hamming distance of 1).</DD>
+	<DT>wList</DT><DD>A list of values for bucket width (w) that are used for finding the minimum cost.
+</DL>
+</UL>
+The following fields give the "simple" answer for the optimum parameters.
+<UL>
+<DL>
+	<DT>simpleW</DT><DD>The best bucket width to use based on the simple optimization calculation.
+		The scaling has been reversed so this is a size in the original coordinate system.</DD>
+	<DT>simpleK</DT><DD>The best number of projections to use based on the simple optimization calculation.
+		</DD>
+	<DT>simpleL</DT><DD>The best number of tables to use based on the simple optimization calculation.
+		</DD>
+	<DT>simpleCost</DT><DD>The optimal cost (time, same units as U_check and U_hash) 
+		based on the simple optimization calculation.
+		</DD>
+	<DT>wSimpleCost</DT><DD>The (time) cost based on the "simple" calculation
+		for all w in the wList of the LSH retrieval.</DD>
+	<DT>simpleBin</DT><DD>The bin index in wSimpleCost array containing the minimum cost.</DD>
+</DL>
+</UL>
+The following fields give the "exact" answer for the optimum parameters.
+<UL>
+<DL>
+	<DT>exactW</DT><DD>The best bucket width to use based on the exact optimization calculation.
+		The scaling has been reversed so this is a size in the original coordinate system.</DD>
+	<DT>exactK</DT><DD>The best number of projections to use based on the exact optimization calculation.
+		</DD>
+	<DT>exactL</DT><DD>The best number of tables to use based on the exact optimization calculation.
+		</DD>
+	<DT>exactCost</DT><DD>The optimal cost (time, same units as U_check and U_hash) 
+		based on the exact optimization calculation.
+		</DD>
+	<DT>wExactCost</DT><DD>The (time) cost based on the "exact" calculation
+		for all w in the wList of the LSH retrieval.</DD>
+	<DT>exactBin</DT><DD>The bin index in wExactCost array containing the minimum cost.</DD>
+	<DT>wExactK</DT><DD>The optimum K, based on the "exact" calculation, for each bucket width,
+		 w, in wList.</DD>
+	<DT>wExactL</DT><DD>The optimum L, based on the "exact" calculation	, for each bucket width,
+			 w, in wList.</DD>
+</DL>
+</UL>
 </body>
 </html>
