@@ -33,9 +33,9 @@ function results = CalculateLSHParameters(N, dnnHist, dnnBins, ...
 % Copyright (c) 2010-2011 Yahoo!  Inc.   See detailed copyright notice at
 % the bottom of this file.
 
-if ~exist('simplepdf','file')
+if 0 && ~exist('simplepdf','file')
     path(path,'/Users/malcolm/Projects/LSHwithYury/jlab/')
-    endfix
+end
 
 debugPlot = 0;          % Set to non zero to get debugging plots
 
