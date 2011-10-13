@@ -381,6 +381,8 @@ results.exactBin = optimalBin;
 results.exactCost = optimalCost;
 results.wExactK = binK;
 results.wExactL = binL;
+results.wCandidateCount = N*optimalL.*choose(floor(binK),r).* ...
+    binAnyProb.^(floor(binK)-r) .* binAnyProb2.^r;
 
 fprintf('Exact Optimization:\n');
 fprintf('\tFor %d points of data use: ', N);
@@ -396,23 +398,30 @@ desiredOptimalL = round(optimalL);
 % nnHitProbL1 = binNnProb(optimalBin)^desiredOptimalK;
 % anyHitProbL1 = binAnyProb(optimalBin)^desiredOptimalK;
 % From the definition of p_nn in Eq. (46)
-nnHitProbL1 = choose(desiredOptimalK, r)*binNnProb(optimalBin)^(desiredOptimalK-r)*...
+nnHitProbL1 = choose(desiredOptimalK, r) * ...
+                            binNnProb(optimalBin)^(desiredOptimalK-r)*...
                             binNnProb2(optimalBin)^(r);
-anyHitProbL1 = choose(desiredOptimalK, r)*binAnyProb(optimalBin)^(desiredOptimalK-r)*...
+anyHitProbL1 = choose(desiredOptimalK, r) * ...
+                            binAnyProb(optimalBin)^(desiredOptimalK-r)*...
                             binAnyProb2(optimalBin)^(r);
                         
 nnHitProb = 1 - (1-nnHitProbL1)^desiredOptimalL;
 anyHitProb = 1 - (1-anyHitProbL1)^desiredOptimalL;
 
 fprintf('Expected statistics for optimal solution:\n');
-fprintf('\tAssuming K=%d, L=%d, hammingR=%d\n', desiredOptimalK, desiredOptimalL, r);
+fprintf('\tAssuming K=%d, L=%d, hammingR=%d\n', desiredOptimalK, ...
+    desiredOptimalL, r);
 fprintf('\tp_nn(w) is %g\n', binNnProb(optimalBin));
 fprintf('\tp_any(w) is %g\n', binAnyProb(optimalBin));
 fprintf('\tProbability of finding NN for L=1: %g\n', nnHitProbL1);
-fprintf('\tProbability of finding ANY for L=1: %g\n', anyHitProbL1);
-fprintf('\tProbability of finding NN for L=%d: %g\n', desiredOptimalL, nnHitProb);
-fprintf('\tProbability of finding ANY for L=%d: %g\n', desiredOptimalL, anyHitProb);
-fprintf('\tExpected number of hits per query: %g\n', anyHitProb*N);
+fprintf('\tProbability of finding ANY for L=1: %g\n', ...
+    anyHitProbL1);
+fprintf('\tProbability of finding NN for L=%d: %g\n', ...
+    desiredOptimalL, nnHitProb);
+fprintf('\tProbability of finding ANY for L=%d: %g\n', ...
+    desiredOptimalL, anyHitProb);
+fprintf('\tExpected number of hits per query: %g\n', ...
+    results.wCandidateCount(optimalBin));
 
 %%
 if debugPlot

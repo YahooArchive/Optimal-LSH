@@ -402,12 +402,14 @@ class index:
 			reverse=True)
 		return [(self.FindID(i),c) for (i,c) in s]
 	
-	def Find(self, data, multiprobeR=0):
+	def Find(self, queryData, multiprobeR=0):
 		'''Find some data in all the LSH tables.  Use Multiprobe, with 
-		the given radius, to search neighboring buckets.'''
+		the given radius, to search neighboring buckets.  Return a list of
+		results.  Each result is a tuple consisting of the candidate ID
+		and the number of times it was found in the index.'''
 		results = {}
 		for p in self.projections:
-			ids = p.Find(data,multiprobeR)
+			ids = p.Find(queryData, multiprobeR)
 			# print "Got back these IDs from p.Find:", ids
 			for id in ids:
 				if id in results:
@@ -418,13 +420,14 @@ class index:
 			reverse=True)
 		return [(self.FindID(i),c) for (i,c) in s]
 		
-	def FindExact(self, data, GetData, multiprobeR=0):
+	def FindExact(self, queryData, GetData, multiprobeR=0):
 		'''Return a list of results sorted by their exact 
 		distance from the query.  GetData is a function that
-		returns the original data given its key.'''
-		s = self.Find(data, multiprobeR)
+		returns the original data given its key.  This function returns
+		a list of results, each result has the candidate ID and distance.'''
+		s = self.Find(queryData, multiprobeR)
 		# print "Intermediate results are:", s
-		d = map(lambda (id,count): (id,((GetData(id)-data)**2).sum(), \
+		d = map(lambda (id,count): (id,((GetData(id)-queryData)**2).sum(), \
 				count), s)
 		s = sorted(d, key=operator.itemgetter(1))
 		return [(self.FindID(i),d) for (i,d,c) in s]
@@ -453,11 +456,12 @@ class index:
 		return None
 			
 	# Return the buckets (t1 and t2 hashes) associated with a data point
-	def GetBuckets(data):
+	def GetBuckets(self, data):
 		b = []
 		for p in self.projections:
-			h = p.CalculateHashes(data)
-			b += h
+			( t1, t2, bins, parray) = p.CalculateHashes2(data)
+			print "Bucket:", t1, t2, bins, parray
+			b += (t1, t2)
 		return b
 	
 	# 
@@ -486,7 +490,7 @@ class index:
 		pi = 0
 		for p in self.projections:
 			prefix = self.DictionaryPrefix(pi)
-			(t1,t2) = p.CalculateHashes(data)
+			( t1, t2, bins, parray) = p.CalculateHashes2(data)
 			word = prefix + str(t1)
 			theWords += [word]
 			pi += 1
@@ -758,15 +762,15 @@ class TestDataClass:
 				sys.stdout.flush()
 				continue
 			startQueryTime = time.clock()	# Measure CPU time
-			matches = self.myIndex.FindExact(queryData, self.RetrieveData, multiprobe)
+			matches = self.myIndex.Find(queryData, multiprobe)
 			totalQueryTime += time.clock() - startQueryTime
 			for (m,c) in matches:
 				if nnKey == m:				# See if NN was found!!!
 					cnn += c
 					cnnFull += 1
-				if m != queryKey:
+				if m != queryKey:			# Don't count the query
 					cany += c
-			canyFull += len(matches)-1
+			canyFull += len(matches)-1		# Total candidates minus 1 for query
 			queryCount += 1
 			# Some debugging for k curve.. print individual results
 			# print "ComputePnnPany Debug:", w, k, l, len(matches), numPoints, cnn, cnnFull, cany, canyFull
@@ -1086,16 +1090,16 @@ if __name__ == '__main__':
 			myTestData.LoadNearestNeighbors(defaultFileName + '.nn')
 			# ComputePnnPanyCurve(myData, [.291032])
 			kList = [math.floor(math.sqrt(2)**k) for k in range(0,10)]
-			kList = [1,2,3,4,5,6,8,10,12,14,16,18,20]
+			kList = [1,2,3,4,5,6,8,10,12,14,16,18,20,22,25,30,35,40]
 			myTestData.ComputeKCurve(kList, defaultW)
 		elif arg == '-ltest':		# Calculate bucket probabilities as a function of l
 			random.seed(0)
 			myTestData = TestDataClass()
-			myTestData.LoadData(defaultFileName + 'dat')
+			myTestData.LoadData(defaultFileName + '.dat')
 			myTestData.LoadNearestNeighbors(defaultFileName + '.nn')
 			# ComputePnnPanyCurve(myData, [.291032])
 			lList = [math.floor(math.sqrt(2)**k) for k in range(0,10)]
-			lList = [1,2,3,4,5,6,10]
+			lList = [1,2,3,4,5,6,8,10,12,14,16,18,20,22,25,30]
 			myTestData.ComputeLCurve(lList, w=defaultW, k=10)
 		elif arg == '-timing':
 			# sys.argv.pop(0)
