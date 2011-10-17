@@ -1047,10 +1047,11 @@ if __name__ == '__main__':
 			except:
 				print "Couldn't parse new value for multiprobeRadius: %s" % arg
 			print 'New default multiprobeRadius for test is', defaultMultiprobeRadius
-		elif arg == '-create':			# Create some uniform random data
+		elif arg == '-create':			# Create some uniform random data and find NN
 			myTestData = RandomTestData()
 			myTestData.CreateData(100000, defaultDims)
 			myTestData.SaveData(defaultFileName + '.dat')
+			print "Finished creating random data.  Now computing nearest neighbors..."
 			myTestData.FindNearestNeighbors(defaultClosest)
 			myTestData.SaveNearestNeighbors(defaultFileName + '.nn')
 		elif arg == '-histogram':		# Calculate distance histograms
@@ -1100,7 +1101,7 @@ if __name__ == '__main__':
 			# ComputePnnPanyCurve(myData, [.291032])
 			lList = [math.floor(math.sqrt(2)**k) for k in range(0,10)]
 			lList = [1,2,3,4,5,6,8,10,12,14,16,18,20,22,25,30]
-			myTestData.ComputeLCurve(lList, w=defaultW, k=10)
+			myTestData.ComputeLCurve(lList, w=defaultW, k=defaultK)
 		elif arg == '-timing':
 			# sys.argv.pop(0)
 			timingModels = []

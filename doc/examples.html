@@ -75,8 +75,11 @@ files, which contain the raw data and the nearest-neighbor data.
 Now we can create the distance histograms.
 <PythonCode> python2.6 lsh.py -d 5 -histogram 
 </PythonCode>
-This Matlab code reads in the newly created distance data.
-<MatlabCode>load testData005.distances
+This Matlab code reads in the newly created distance data and computes the distance histograms.
+<MatlabCode>testData = load('testData005.distances');
+nBins = 40;
+[dnnHist, dnnBins] = hist(testData(:,1), nBins);
+[danyHist, danyBins] = hist(testData(:,2), nBins);
 </MatlabCode>
 Given this distance data, 
 we can calculate the optimal LSH statistics.  Do this for
@@ -108,7 +111,7 @@ Exact k:            22         13          8
 Exact L:             3          6         14 
 Exact Cost:    2.96372    5.94376    11.9977 
 </MatlabResults>
-A number of debugging plots are create if you set the "debugPlot" 
+A number of debugging plots are created if you set the "debugPlot" 
 variable at the top of the CalculateMPLSHParameters() function.
 These results are shown here.
 
