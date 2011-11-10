@@ -213,10 +213,10 @@ class lsh:
 		if multiprobeRadius > 0:
 			# print "Multiprobe points:", points
 			# print "Multiprobe bin:", bins
-			# print "Multiprobe direct:", direct
+			# print "Multiprobe direct:", directVector
 			dimensions = range(self.k)
 			deltaVector = numpy.zeros((self.k, 1), 'int')	# Preallocate
-			for r in range(1, multiprobeRadius):
+			for r in range(1, multiprobeRadius+1):
 				# http://docs.python.org/library/itertools.html
 				for candidates in itertools.combinations(dimensions, r):
 					deltaVector *= 0						# Start Empty
@@ -224,7 +224,7 @@ class lsh:
 					newProbe[:] = bins + deltaVector*directVector	# New probe
 					t1 = self.ListHash(newProbe)
 					t2 = self.ListHash(newProbe[::-1])		# Reverse data for second hash
-					# print "Multiprobe probe:",p, t1, t2
+					# print "Multiprobe probe:",newProbe, t1, t2
 					yield (t1,t2)
 	
 	# Put some data into the hash bucket for this LSH projection
@@ -707,7 +707,7 @@ class TestDataClass:
 		the input for the parameter optimization routine.  Enhanced
 		to also print the NN binary projections.'''
 		numPoints = self.NumPoints()
-		medians = self.FindMedian()
+		# medians = self.FindMedian()		# Not used now, but useful for binary quantization
 		print "Pulling %d items from the NearestNeighbors list for ComputeDistanceHistogram" % \
 			len(self.nearestNeighbors.items())
 		for (queryKey,(nnKey,nnDist)) in self.nearestNeighbors.items():

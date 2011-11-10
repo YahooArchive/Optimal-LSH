@@ -322,67 +322,59 @@ fprintf('\tExpected number of hits per query: %g\n', anyHitProb*N);
 %%%%%%%%%%%%%%%%%%%   EXACT PARAMETER ESTIMATION    %%%%%%%%%%%%%%%%%%%%%%
 % Now do it with the full optimal calculations
 % Eq. 41 for all values of w
-alpha =  log((binNnProb-binAnyProb)./(1-binNnProb)) + ...
+wAlpha =  log((binNnProb-binAnyProb)./(1-binNnProb)) + ...
     r * log(binAnyProb2./binAnyProb) + log(uCheck/uHash) - log(factorial(r));
-% Eq. 40 fir all values of w
-binK = (log(N)+alpha)./(-log(binAnyProb)) + ...
-    r*log((log(N)+alpha)./(-log(binAnyProb)));
-binK(imag(binK) ~= 0.0 | binK < 1) = 1;     % Set bad values to at least 1
-if 0                % Hopefully not necessary
-    for iTemp  = 1:length(binK)
-        if isreal(binK(iTemp)) ==0 | binK(iTemp) < 0
-            binK(iTemp) = 1;
-        end
-    end
-end
+% Eq. 40 for all values of w
+wBestK = (log(N)+wAlpha)./(-log(binAnyProb)) + ...
+    r*log((log(N)+wAlpha)./(-log(binAnyProb)));
+wBestK(imag(wBestK) ~= 0.0 | wBestK < 1) = 1;     % Set bad values to at least 1
 
 % Now we want to find the total cost for all values of w.  We will argmin
 % this for find the best w (This is the inside of Eq. 39.  We first compute
 % the inside of x^(log/log)
-temp =  ((binK.^r).*(binNnProb-binAnyProb)*N*uCheck.*((binAnyProb2./binAnyProb).^r))./ ...
-    ((1-binNnProb).*uHash*factorial(r));
-wFullCost = (-log(deltaTarget))* uHash*factorial(r)*((binNnProb./binNnProb2).^r)./ ...
-    (binK.^r).*(1-binAnyProb)./(binNnProb-binAnyProb).* ...
-        temp.^(log(binNnProb)./log(binAnyProb));
-results.wExactCost = wFullCost;
+% Equations (48), (49) and (50) for optimalBin estimate.
+Ch = uHash * (-log(deltaTarget)) * ...
+    factorial(r) * (binNnProb./ binNnProb2).^r;
+Cc = uCheck * (-log(deltaTarget))*N*((binNnProb./binNnProb2)).^r .* ...
+    (binAnyProb2./binAnyProb).^r; 
+wFullCost = Ch /( (wBestK.^r) .* (binNnProb.^wBestK)) + ...
+      Cc .* (binAnyProb./binNnProb).^wBestK;
+results.wExpExactCost = wFullCost;
+
+% Now compute the integer values of k and l.
+% Don't let r get bigger than k (vs. W), which can happen for very small w.
+kVsW = floor(wBestK);
+% We compute L via Equation (42)
+lVsW = ceil(-log(deltaTarget)./ ...
+    ( choose(kVsW, min(r, kVsW)) .* (binNnProb.^(max(1,wBestK-r))) .* ...
+      (binNnProb2.^r)));
 
 [optimalMin, optimalBin] = min(wFullCost);
 optimalW = wList(optimalBin)/dScale;
 
-optimalK = floor(binK(optimalBin));
-% optimalL = ceil(-log(deltaTarget)/ ...
-%     ( (optimalK^r)/factorial(r) * (binNnProb(optimalBin)^(optimalK-r)) * ...
-%       (binNnProb2(optimalBin)^r)));       % Wrong expression for C^r_k -
-%       Malcolm 9/8/2011
-                                        % Equation (42)
-optimalL = ceil(-log(deltaTarget)/ ...
-    ( choose(optimalK,r) * (binNnProb(optimalBin)^(optimalK-r)) * ...
-      (binNnProb2(optimalBin)^r)));
+optimalK = kVsW(optimalBin);                             
+optimalL = lVsW(optimalBin);
 
-kVsW = floor(binK);
-% Don't let r get bigger than k (vs. W), which can happen for very small w.
-binL = ceil(-log(deltaTarget)./ ...
-    ( choose(kVsW, min(r, kVsW)) .* (binNnProb.^(binK-r)) .* ...
-      (binNnProb2.^r)));
-
-% Equations (48), (49) and (50) for optimalBin estimate.
-Ch = uHash * (-log(deltaTarget)) * ...
-    factorial(r) * (binNnProb(optimalBin)./ binNnProb2(optimalBin))^r;
-Cc = uCheck * (-log(deltaTarget))*N*((binNnProb(optimalBin)./binNnProb2(optimalBin)))^r * ...
-    (binAnyProb2(optimalBin)/binAnyProb(optimalBin))^r; 
-optimalCost = Ch /( (optimalK^r) * (binNnProb(optimalBin)^optimalK)) + ...
-      Cc * (binAnyProb(optimalBin)/binNnProb(optimalBin))^optimalK;
-
-% results.exactCostVsW = wFullCost;
 results.exactW = optimalW;
 results.exactK = optimalK;
 results.exactL = optimalL;
 results.exactBin = optimalBin;
-results.exactCost = optimalCost;
-results.wExactK = binK;
-results.wExactL = binL;
-results.wCandidateCount = N*optimalL.*choose(floor(binK),r).* ...
-    binAnyProb.^(floor(binK)-r) .* binAnyProb2.^r;
+results.exactCost = wFullCost(optimalBin);
+results.wExactK = wBestK;
+results.wExactL = lVsW;
+results.wExactCost = wFullCost;
+
+% Now figure out the best possible estimate of the total number of
+% candidates we will check.  Sum over all distances < r.
+probSum = 0;
+for ri = 0:r
+    candidatesPerBucket = choose(kVsW, min(ri, kVsW)) .* ...
+        results.binAnyProb.^max(0,kVsW-ri) .* ...
+        results.binAnyProb2.^ri;
+    probSum = probSum + candidatesPerBucket;
+end
+results.wCandidateCount = N * (1 - (1-probSum).^lVsW);
+results.wCandidateCount2 = N*probSum.*lVsW;
 
 fprintf('Exact Optimization:\n');
 fprintf('\tFor %d points of data use: ', N);
@@ -390,7 +382,7 @@ fprintf('w=%g and get %g hits per bin and %g nn.\n', ...
     optimalW, binAnyProb(optimalBin), ...
     binNnProb(optimalBin));
 fprintf('\t\tK=%g L=%g cost is %g\n', ...
-	optimalK, optimalL, optimalCost);
+	optimalK, optimalL, wFullCost(optimalBin));
  
 % And print the statistics for L=1 for simple parameters.
 desiredOptimalK = round(optimalK);
@@ -647,8 +639,8 @@ function[f]=simplepdf(x,mu,sig,flag)
 %   F=SIMPLEPDF(X,MU,SIG,'boxcar') computes a uniform pdf with mean MU
 %   and standard deviation SIG.
 %  
-%   F=SIMPLEPDF(X,XO,ALPHA,'cauchy') computes a Cauchy pdf with location
-%   parameter XO and scale parameter ALPHA.
+%   F=SIMPLEPDF(X,XO,wAlpha,'cauchy') computes a Cauchy pdf with location
+%   parameter XO and scale parameter wAlpha.
 %
 %   F=SIMPLEPDF(X,BETA,'exponential') computes an exponential pdf with
 %   scale parameter, hence mean and standard deviation, equal to BETA.
@@ -657,7 +649,7 @@ function[f]=simplepdf(x,mu,sig,flag)
 %
 %   Usage: f=simplepdf(x,mu,sig,'gaussian');
 %          f=simplepdf(x,mu,sig,'boxcar');
-%          f=simplepdf(x,xo,alpha,'cauchy');
+%          f=simplepdf(x,xo,wAlpha,'cauchy');
 %          f=simplepdf(x,beta,'exponential');
 %   __________________________________________________________________
 %   This is part of JLAB --- type 'help jlab' for more information
@@ -688,8 +680,8 @@ elseif strcmp(flag,'boxcar')
   f(ia:ib)=1;
   f=f./vsum(f*dx,1);
 elseif strcmp(flag,'cauchy')
-  alpha=sig;
-  f=frac(alpha./pi,(x-mu).^2 + alpha.^2);
+  wAlpha=sig;
+  f=frac(wAlpha./pi,(x-mu).^2 + wAlpha.^2);
 elseif strcmp(flag,'exponential')
   f=frac(1,mu).*exp(-abs(x)./mu);
 end
@@ -1000,12 +992,12 @@ vswap(fz,nan,0);
 
 function[]=pdfinv_test
   
-alpha=2;
+wAlpha=2;
 
 dy=0.01;
 yi=(-40:dy:40)';
-fx=simplepdf(yi,0,alpha,'cauchy');
-fy=simplepdf(yi,0,1./alpha,'cauchy');
+fx=simplepdf(yi,0,wAlpha,'cauchy');
+fy=simplepdf(yi,0,1./wAlpha,'cauchy');
 fy2=pdfinv(yi,fx);
 
 tol=1e-3;
