@@ -780,6 +780,10 @@ class TestDataClass:
 		if queryCount == 0:
 			queryCount = 1					# To prevent divide by zero
 		perQueryTime = totalQueryTime/queryCount
+        print "CPP:", cnn, cnnFull, cany, canyFull
+        print "CPP:",  cnn/float(queryCount*l), cnnFull/float(queryCount), \
+            cany/float(queryCount*l*numPoints), canyFull/float(queryCount*numPoints), \
+            perQueryTime, numDims
 		return cnn/float(queryCount*l), cnnFull/float(queryCount), \
 			cany/float(queryCount*l*numPoints), canyFull/float(queryCount*numPoints), \
 			perQueryTime, numDims
@@ -804,17 +808,17 @@ class TestDataClass:
 			print w, k, l, pnn, pany, pany*numPoints, queryTime
 			sys.stdout.flush()
 
-	def ComputeLCurve(self, lList, w = 2.91032, k=10):
+	def ComputeLCurve(self, lList, w = 2.91032, k=10, r=0):
 		'''Compute the probability of nearest neighbors as a function
 		of l.'''
 		numPoints = self.NumPoints()
 		firstTime = True
 		for l in sorted(list(lList)):
-			(pnn, pnnFull, pany, panyFull, queryTime, numDims) = self.ComputePnnPany(w, k, l)
+			(pnn, pnnFull, pany, panyFull, queryTime, numDims) = self.ComputePnnPany(w, k, l, r)
 			if firstTime:
-				print "# w k l pnnFull, panyFull panyFull*N queryTime"
+				print "# w k l r pnnFull, panyFull panyFull*N queryTime"
 				firstTime = False
-			print w, k, l, pnnFull, panyFull, panyFull*numPoints, queryTime
+			print w, k, l, r, pnnFull, panyFull, panyFull*numPoints, queryTime
 			sys.stdout.flush()
 
 	
@@ -1101,7 +1105,8 @@ if __name__ == '__main__':
 			# ComputePnnPanyCurve(myData, [.291032])
 			lList = [math.floor(math.sqrt(2)**k) for k in range(0,10)]
 			lList = [1,2,3,4,5,6,8,10,12,14,16,18,20,22,25,30]
-			myTestData.ComputeLCurve(lList, w=defaultW, k=defaultK)
+			myTestData.ComputeLCurve(lList, w=defaultW, 
+				k=defaultK, r=defaultMultiprobeRadius)
 		elif arg == '-timing':
 			# sys.argv.pop(0)
 			timingModels = []
