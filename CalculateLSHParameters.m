@@ -208,7 +208,8 @@ binNnProb = projNnPDF' * wMatrix * xpBinWidth;
 % Now do the same thing for the multiprobe buckets
 wMatrix2 = zeros(length(xp), length(wList));
 for i=1:length(wList)
-    wMatrix2(:,i) = max(0, 1-abs(xp'-wList(i))/wList(i));
+    % wMatrix2(:,i) = max(0, 1-abs(xp'-wList(i))/wList(i));
+    wMatrix2(:,i) = max(0, min(1, (1.5 + -2*abs(xp'/wList(i)-.75))));
 end
 binAnyProb2 = projAnyPDF' * wMatrix2 * xpBinWidth;
 binNnProb2 = projNnPDF' * wMatrix2 * xpBinWidth;
