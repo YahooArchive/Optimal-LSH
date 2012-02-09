@@ -780,10 +780,10 @@ class TestDataClass:
 		if queryCount == 0:
 			queryCount = 1					# To prevent divide by zero
 		perQueryTime = totalQueryTime/queryCount
-        print "CPP:", cnn, cnnFull, cany, canyFull
-        print "CPP:",  cnn/float(queryCount*l), cnnFull/float(queryCount), \
-            cany/float(queryCount*l*numPoints), canyFull/float(queryCount*numPoints), \
-            perQueryTime, numDims
+		print "CPP:", cnn, cnnFull, cany, canyFull
+		print "CPP:",  cnn/float(queryCount*l), cnnFull/float(queryCount), \
+			cany/float(queryCount*l*numPoints), canyFull/float(queryCount*numPoints), \
+			perQueryTime, numDims
 		return cnn/float(queryCount*l), cnnFull/float(queryCount), \
 			cany/float(queryCount*l*numPoints), canyFull/float(queryCount*numPoints), \
 			perQueryTime, numDims
@@ -795,17 +795,17 @@ class TestDataClass:
 				(pnn, pnnFull, pany, panyFull, queryTime, numDims) = self.ComputePnnPany(w, 1, 10, multiprobe)
 				if w == wList[0]:
 					print "# w pnn pany queryTime"
-				print w, pnn, pany, queryTime
+				print "PnnPany:", w, multiprobe, pnn, pany, queryTime
 				sys.stdout.flush()
 
-	def ComputeKCurve(self, kList, w = .291032):
+	def ComputeKCurve(self, kList, w = .291032, r=0):
 		'''Compute the number of ANY neighbors as a function of
 		k.  Should go down exponentially.'''
 		numPoints = self.NumPoints()
 		l = 10
 		for k in sorted(list(kList)):
-			(pnn, pnnFull, pany, panyFull, queryTime, numDims) = self.ComputePnnPany(w, k, l)
-			print w, k, l, pnn, pany, pany*numPoints, queryTime
+			(pnn, pnnFull, pany, panyFull, queryTime, numDims) = self.ComputePnnPany(w, k, l, r)
+			print w, k, l, r, pnn, pany, pany*numPoints, queryTime
 			sys.stdout.flush()
 
 	def ComputeLCurve(self, lList, w = 2.91032, k=10, r=0):
@@ -1096,7 +1096,7 @@ if __name__ == '__main__':
 			# ComputePnnPanyCurve(myData, [.291032])
 			kList = [math.floor(math.sqrt(2)**k) for k in range(0,10)]
 			kList = [1,2,3,4,5,6,8,10,12,14,16,18,20,22,25,30,35,40]
-			myTestData.ComputeKCurve(kList, defaultW)
+			myTestData.ComputeKCurve(kList, defaultW, defaultMultiprobeRadius)
 		elif arg == '-ltest':		# Calculate bucket probabilities as a function of l
 			random.seed(0)
 			myTestData = TestDataClass()
