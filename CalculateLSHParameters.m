@@ -25,10 +25,10 @@ function results = CalculateLSHParameters(N, dnnHist, dnnBins, ...
 %   binAnyProb, binNnProb (wList)
 %       Prob of hit as a function of w
 
-% Equation numbers refer to first draft of "Optimal Locality-Sensitive
+% Equation numbers refer to second draft of "Optimal Locality-Sensitive
 % Hashing" by Malcolm Slaney, Yury Lifshits and Junfeng He, Submitted to 
-% the Proceeings of the IEEE special issue on Web-Scale Multimedia, July
-% 2011.
+% the Proceeings of the IEEE special issue on Web-Scale Multimedia,
+% February 2012.
 
 % Copyright (c) 2010-2012 Yahoo!  Inc.   See detailed copyright notice at
 % the bottom of this file.
@@ -82,12 +82,8 @@ end
 
 % Create the results structure
 results = struct('uHash', uHash, 'uCheck', uCheck, 'N', N,  ...
-    'multiprobeR', r);
-results.dnnBins = dnnBins;
-results.dnnHist = dnnHist;
-results.danyBins = danyBins;
-results.danyHist = danyHist;
-results.delta = deltaTarget;
+    'multiprobeR', r, 'dnnBins', dnnBins, 'dnnHist', dnnHist, ...
+	'danyBins', danyBins, 'danyHist', danyHist, 'delta', deltaTarget);
 
 %%
 %%%%%%%%%%%%%%%%%%%   SCALING    %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -104,6 +100,7 @@ fprintf('Scaling all distances by %g for easier probability calcs.\n', ...
 % Create new scales and interpolate everything 
 % Create the distance PDFs with the new scale.
 % Scale bin sizes so we have enough resolution for calculations
+% xs is the sampling grid for the distance profiles (positive only)
 nnBinWidth = min(dnnBins(2:end)-dnnBins(1:end-1))*dScale/2;
 xs = 0:nnBinWidth:max(danyBins)*dScale*2;
 dnnPDF = max(0, interp1(dnnBins*dScale, dnnHist, xs, 'linear', 0));
@@ -111,6 +108,7 @@ danyPDF = max(0, interp1(danyBins*dScale, danyHist, xs, 'linear', 0));
 results.xs = xs;
 results.dnnPDF = dnnPDF;
 results.danyPDF = danyPDF;
+results.dScale = dScale;
 
 if debugPlot
     figure(2);
@@ -130,11 +128,11 @@ expansionFactor = 1;       % Amount to increase over distance histograms
 maxBin = expansionFactor*max(xs);
 
 % Don't let nnBinWidth get too small because pdfinv creates a square matrix 
+% xp is the sampling grid for the projection data.
 nnBinWidth = max(maxBin/1000.0, nnBinWidth);
 xp = -maxBin:nnBinWidth:maxBin;
 xp(abs(xp)<1e-9) = 1e-9;
 
-results.dScale = dScale;
 results.xp = xp;
 
 %%
@@ -178,7 +176,6 @@ if debugPlot
         'Location','NorthWest');
     title('Any Projection Histogram');
     xlabel('Distance')
-    % pause;
 end
 
 
@@ -195,24 +192,24 @@ numWs = 500;
 deltaW = exp(log(maxW/minW)/(numWs-1));
 wList = minW * deltaW .^(0:numWs-1);
 
-wMatrix = zeros(length(xp), length(wList));
+deltaMatrix = zeros(length(xp), length(wList));
 for i=1:length(wList)
-    wMatrix(:,i) = max(0, 1-abs(xp')/wList(i));
+    deltaMatrix(:,i) = max(0, 1-abs(xp')/wList(i));
 end
-% Now compute how many hits there are in the center bucket, as a function
+% Now compute how many hits there are in the query's bucket, as a function
 % of the bin width.
 xpBinWidth = xp(3)-xp(2);      % For example
-binAnyProb = projAnyPDF' * wMatrix * xpBinWidth;
-binNnProb = projNnPDF' * wMatrix * xpBinWidth;
+binAnyProb = projAnyPDF' * deltaMatrix * xpBinWidth;
+binNnProb = projNnPDF' * deltaMatrix * xpBinWidth;
 
 % Now do the same thing for the multiprobe buckets
-wMatrix2 = zeros(length(xp), length(wList));
+delta2Matrix = zeros(length(xp), length(wList));
 for i=1:length(wList)
-    % wMatrix2(:,i) = max(0, 1-abs(xp'-wList(i))/wList(i));
-    wMatrix2(:,i) = max(0, min(1, (1.5 + -2*abs(xp'/wList(i)-.75))));
+    % delta2Matrix(:,i) = max(0, 1-abs(xp'-wList(i))/wList(i));
+    delta2Matrix(:,i) = max(0, min(1, (1.5 + -2*abs(xp'/wList(i)-.75))));
 end
-binAnyProb2 = projAnyPDF' * wMatrix2 * xpBinWidth;
-binNnProb2 = projNnPDF' * wMatrix2 * xpBinWidth;
+binAnyProb2 = projAnyPDF' * delta2Matrix * xpBinWidth;
+binNnProb2 = projNnPDF' * delta2Matrix * xpBinWidth;
 
 if 0                % Is this still necessary?
     binAnyProb = min(binAnyProb, 0.9999);
@@ -235,8 +232,6 @@ if debugPlot
     ylabel('Collision Probabilities')
     xlabel('Bin Width (w)')
     axis([1e-2/dScale 4e1/dScale 0 1]);
-    % axis([0 max(wList) 0 1])
-    % pause;
 end
 
 results.binAnyProb = binAnyProb;
@@ -249,9 +244,6 @@ results.wList = wList;
 %%%%%%%%%%%%%%%%   SIMPLE PARAMETER ESTIMATES    %%%%%%%%%%%%%%%%%%%%%%%
 
 % Now find best LSH parameters using Simple calcs
-
-% results.logNNOverlogAny = log(binNnProb)./log(binAnyProb);
-% results.NPower_logNNOverlogAny = N.^(log(binNnProb)./log(binAnyProb));
 
 temp1 = (-log(binAnyProb)/log(N)).^r + ...
     uHash/uCheck * (binAnyProb2./binAnyProb).^r;
@@ -270,7 +262,7 @@ simpleL = -log(deltaTarget)/ ...
     ( simpleK^r/factorial(r) * (binNnProb(simpleBin)^(simpleK-r)) * ...
         (binAnyProb2(simpleBin)^r) );
 simpleL = ceil(simpleL);
-% Equations (48), (49) and (50) for simpleBin estimate.
+% Equations (20) and (21) for cost factors
 Ch = uHash*(-log(deltaTarget)) * ...
      factorial(r) * (binNnProb(simpleBin)/binNnProb2(simpleBin))^r;
 Cc = uCheck * (-log(deltaTarget))*N* ...
@@ -314,10 +306,10 @@ fprintf('\tExpected number of hits per query: %g\n', anyHitProb*N);
 %%
 %%%%%%%%%%%%%%%%%%%   EXACT PARAMETER ESTIMATION    %%%%%%%%%%%%%%%%%%%%%%
 % Now do it with the full optimal calculations
-% Eq. 41 for all values of w
+% Eq. 30 for all values of w
 wAlpha =  log((binNnProb-binAnyProb)./(1-binNnProb)) + ...
     r * log(binAnyProb2./binAnyProb) + log(uCheck/uHash) - log(factorial(r));
-% Eq. 40 for all values of w.  Added rprime definition to make things
+% Eq. 32 for all values of w.  Added rprime definition to make things
 % easier.
 rprime = r ./ (-log(binAnyProb));
 wBestK = (log(N)+wAlpha)./(-log(binAnyProb)) + ...
@@ -327,7 +319,7 @@ wBestK(imag(wBestK) ~= 0.0 | wBestK < 1) = 1;     % Set bad values to at least 1
 % Now we want to find the total cost for all values of w.  We will argmin
 % this for find the best w (This is the inside of Eq. 39.  We first compute
 % the inside of x^(log/log)
-% Equations (48), (49) and (50) for optimalBin estimate.
+% Equations (20) and (21) for cost factors.
 Ch = uHash * (-log(deltaTarget)) * ...
     factorial(r) * (binNnProb./ binNnProb2).^r;
 Cc = uCheck * (-log(deltaTarget))*N*((binNnProb./binNnProb2)).^r .* ...
@@ -339,7 +331,7 @@ results.wExpExactCost = wFullCost;
 % Now compute the integer values of k and l.
 % Don't let r get bigger than k (vs. W), which can happen for very small w.
 kVsW = floor(wBestK);
-% We compute L via Equation (42)
+% We compute L via Equation (17)
 lVsW = ceil(-log(deltaTarget)./ ...
     ( choose(kVsW, min(r, kVsW)) .* (binNnProb.^(max(1,wBestK-r))) .* ...
       (binNnProb2.^r)));
@@ -402,6 +394,7 @@ if 1
     maxK = optimalK + 10;
     Ts = zeros(length(binNnProb), maxK);
     for k=1:maxK
+        % Equation 19 for T_s(w)
         cPnnQnn = choose(k, min(r, k))*binNnProb.^(k-r).*binNnProb2.^r;
         cPanyQany = choose(k, min(r, k))*binAnyProb.^(k-r).*binAnyProb2.^r;
         TsByW = uHash * (-log(deltaTarget)) ./ cPnnQnn + ...
