@@ -1,3 +1,5 @@
+#! /usr/bin/python
+
 '''
 Copyright (c) 2011, Yahoo! Inc.
 All rights reserved.
@@ -154,7 +156,8 @@ class lsh:
 			# Binary LSH
 			bins[:] = (numpy.sign(numpy.dot(self.projections, data))+1)/2.0
 		else:
-			bins[:] = numpy.floor(self.bias + numpy.dot(self.projections, data)/self.w)
+			proj_trans = numpy.dot(self.projections, data)/self.w
+			bins[:] = numpy.floor(self.bias + proj_trans[None].T)	# proj_trans[None] is a dirty ugly hack to turn your 1D vector into a 2D array and then transpose it so that dimensions of self.bias and the rest are in aggreement
 		t1 = self.ListHash(bins)
 		t2 = self.ListHash(bins[::-1])		# Reverse data for second hash
 		return t1, t2
